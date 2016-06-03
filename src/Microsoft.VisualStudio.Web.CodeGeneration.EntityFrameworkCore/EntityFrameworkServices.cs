@@ -122,7 +122,7 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
             ContextProcessingStatus state = ContextProcessingStatus.ContextAvailable;
 
             var dbContextSymbols = _modelTypesLocator.GetType(dbContextFullTypeName).ToList();
-            var startupType = _modelTypesLocator.GetType("Startup").FirstOrDefault();
+            var startupType = ModelType.FromITypeSymbol(GetCustomStartup());
             Type modelReflectionType = null;
             if (dbContextSymbols.Count == 0)
             {
@@ -142,7 +142,7 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
                         dbContextTemplateModel.DbContextNamespace,
                         dataBaseName: dbContextTemplateModel.DbContextTypeName + "-" + Guid.NewGuid().ToString());
                 }
-                
+
                 if (!startUpEditResult.Edited)
                 {
                     state = ContextProcessingStatus.ContextAddedButRequiresConfig;
@@ -159,7 +159,7 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
                         c = c.AddSyntaxTrees(dbContextSyntaxTree);
                         if (startUpEditResult.Edited)
                         {
-                            c = c.ReplaceSyntaxTree(startUpEditResult.OldTree, startUpEditResult.NewTree);
+                            c = c.AddSyntaxTrees(new[] { startUpEditResult.NewTree });
                         }
                         return c;
                     },
@@ -171,6 +171,23 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
             }
             else
             {
+                if (startupType != null)
+                {
+                    startUpEditResult = _dbContextEditorServices.EditStartupForNewContext(startupType,
+                        dbContextSymbols.First().Name,
+                        dbContextSymbols.First().Namespace,
+                        dataBaseName: dbContextSymbols.First().Name + "-" + Guid.NewGuid().ToString());
+                }
+
+                if (!startUpEditResult.Edited)
+                {
+                    state = ContextProcessingStatus.ContextAddedButRequiresConfig;
+
+                    // The created context would anyway fail to fetch metadata with a crypic message
+                    // It's better to throw with a meaningful message
+                    throw new InvalidOperationException(string.Format("{0} {1}", MessageStrings.FailedToEditStartup, MessageStrings.EnsureStartupClassExists));
+                }
+
                 var addResult = _dbContextEditorServices.AddModelToContext(dbContextSymbols.First(), modelTypeSymbol);
                 if (addResult.Edited)
                 {
@@ -181,6 +198,7 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
                         modelTypeSymbol.FullName,
                         c =>
                         {
+                            c = c.AddSyntaxTrees(new[] { startUpEditResult.NewTree });
                             var oldTree = c.SyntaxTrees.FirstOrDefault(t => t.FilePath == addResult.OldTree.FilePath);
                             Debug.Assert(oldTree != null);
                             return c.ReplaceSyntaxTree(oldTree, addResult.NewTree);
@@ -193,7 +211,7 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
                     _logger.LogMessage("Attempting to compile the application in memory");
                     CompileAndGetDbContextAndModelTypes(dbContextFullTypeName, 
                         modelTypeSymbol.FullName,
-                        c =>{ return c; },
+                        c =>{ return c.AddSyntaxTrees(new[] { startUpEditResult.NewTree }); },
                         out dbContextType,
                         out modelReflectionType);
                     
@@ -220,9 +238,10 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
                 {
                     _logger.LogMessage("Added DbContext : " + dbContextSyntaxTree.FilePath.Substring(_applicationInfo.ApplicationBasePath.Length));
 
+                    //TODO: Always show the readme with additional steps to register the context.
                     if (state != ContextProcessingStatus.ContextAddedButRequiresConfig)
                     {
-                        PersistSyntaxTree(startUpEditResult.NewTree);
+                        _logger.LogMessage("However there may be additional steps required for the generted code to work properly, refer to documentation <forward_link>.");
                     }
                     else
                     {
@@ -411,6 +430,7 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
                     var reflectedStartupType = dbContextType.GetTypeInfo().Assembly.GetType(startupType.FullName);
                     if (reflectedStartupType != null)
                     {
+                        _logger.LogMessage($"The Reflected startup type was  found: {startupType.FullName}");
                         builder.UseStartup(reflectedStartupType);
                     }
                 }
@@ -426,6 +446,55 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
                 }
                 return null;
             }
+        }
+
+        private const string StartupClassText = @"
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace CodeGeneration.Temp
+{
+    public class Startup
+    {
+        public Startup(IHostingEnvironment env)
+        {
+            var builder = new ConfigurationBuilder()
+                .SetBasePath(env.ContentRootPath)
+                .AddJsonFile(""appsettings.json"", optional: true, reloadOnChange: true)
+                .AddJsonFile($""appsettings.{env.EnvironmentName}.json"", optional: true);
+            builder.AddEnvironmentVariables();
+            Configuration = builder.Build();
+        }
+
+        public Microsoft.Extensions.Configuration.IConfigurationRoot Configuration { get; }
+
+        public void ConfigureServices(IServiceCollection services)
+        {
+
+        }
+
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
+        {
+
+        }
+    }
+}
+";
+
+        private ITypeSymbol GetCustomStartup()
+        {
+            var tree = CSharpSyntaxTree.ParseText(StartupClassText);
+            var compilation = CSharpCompilation.Create("Temp", new[] { tree });
+            return compilation.GetTypeByMetadataName("CodeGeneration.Temp.Startup");
         }
     }
 }
