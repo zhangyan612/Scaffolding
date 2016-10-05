@@ -17,6 +17,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.VisualStudio.Web.CodeGeneration.DotNet;
 using Microsoft.VisualStudio.Web.CodeGeneration.ProjectInfo;
+using Microsoft.EntityFrameworkCore.Design.Internal;
 
 namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
 {
@@ -118,6 +119,8 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
             var dbContextSymbols = _modelTypesLocator.GetType(dbContextFullTypeName).ToList();
             var startupType = _modelTypesLocator.GetType("Startup").FirstOrDefault();
             Type modelReflectionType = null;
+            Assembly startupAssembly = null;
+
             if (dbContextSymbols.Count == 0)
             {
                 await ValidateEFSqlServerDependency();
@@ -158,7 +161,8 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
                         return c;
                     },
                     out dbContextType,
-                    out modelReflectionType);
+                    out modelReflectionType,
+                    out startupAssembly);
 
                 // Add file information
                 dbContextSyntaxTree = dbContextSyntaxTree.WithFilePath(GetPathForNewContext(dbContextTemplateModel.DbContextTypeName, areaName));
@@ -186,7 +190,8 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
                             return c.ReplaceSyntaxTree(oldTree, addResult.NewTree);
                         },
                         out dbContextType,
-                        out modelReflectionType);
+                        out modelReflectionType,
+                        out startupAssembly);
                 }
                 else
                 {
@@ -195,7 +200,8 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
                         modelTypeSymbol.FullName,
                         c =>{ return c; },
                         out dbContextType,
-                        out modelReflectionType);
+                        out modelReflectionType,
+                        out startupAssembly);
                     
                     if (dbContextType == null)
                     {
@@ -211,7 +217,8 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
 
             _logger.LogMessage("Attempting to figure out the EntityFramework metadata for the model and DbContext: "+modelTypeSymbol.Name);
 
-            var metadata = GetModelMetadata(dbContextType, modelReflectionType, startupType);
+            // TODO: How to figure out ContentRootPath??
+            var metadata = GetModelMetadata(dbContextType, modelReflectionType, startupType, startupAssembly, contentRootPath: "");
             // Write the DbContext/Startup if getting the model metadata is successful
             if (dbContextSyntaxTree != null)
             {
@@ -241,12 +248,15 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
             string modelTypeName, 
             Func<CodeAnalysis.Compilation, CodeAnalysis.Compilation> compilationModificationFunc, 
             out Type dbContextType, 
-            out Type modelType)
+            out Type modelType,
+            out Assembly startupAssembly)
         {
             CompilationResult result = GetCompilation(compilationModificationFunc);
 
             if (result.Success)
             {
+                startupAssembly = result.Assembly;
+
                 dbContextType = string.IsNullOrEmpty(dbContextTypeName)
                     ? null
                     : result.Assembly.GetType(dbContextTypeName);
@@ -423,7 +433,7 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
             }
         }
 
-        private ModelMetadata GetModelMetadata(Type dbContextType, Type modelType, ModelType startupType)
+        private ModelMetadata GetModelMetadata(Type dbContextType, Type modelType, ModelType startupType, Assembly startupAssembly, string contentRootPath)
         {
             if (dbContextType == null)
             {
@@ -434,8 +444,8 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
             {
                 throw new ArgumentNullException(nameof(modelType));
             }
-
-            DbContext dbContextInstance = TryCreateContextUsingAppCode(dbContextType, startupType);
+            
+            DbContext dbContextInstance = GetDbContextUsingEfAPI(dbContextType, startupAssembly, contentRootPath);
 
             if (dbContextInstance == null)
             {
@@ -464,30 +474,6 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
             return new ModelMetadata(entityType, dbContextType);
         }
 
-        private DbContext TryCreateContextUsingAppCode(Type dbContextType, ModelType startupType)
-        {
-            try {
-                var builder = new WebHostBuilder();
-                builder.UseKestrel()
-                        .UseContentRoot(Directory.GetCurrentDirectory());
-
-                if (startupType != null)
-                {
-                    var reflectedStartupType = dbContextType.GetTypeInfo().Assembly.GetType(startupType.FullName);
-                    if (reflectedStartupType != null)
-                    {
-                        builder.UseStartup(reflectedStartupType);
-                    }
-                }
-                var appServices = builder.Build().Services;
-                return appServices.GetService(dbContextType) as DbContext;
-            }
-            catch(Exception ex)
-            {
-                throw ex.Unwrap(_logger);
-            }
-        }
-
         public Task<ContextProcessingResult> GetModelMetadata(ModelType modelType)
         {
             if (modelType == null)
@@ -506,6 +492,13 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
                 ContextProcessingStatus = ContextProcessingStatus.ContextAvailable,
                 ModelMetadata = modelMetadata
             });
+        }
+
+        private DbContext GetDbContextUsingEfAPI(Type dbContextType, Assembly startupAssembly, string contentRootPath)
+        {
+            StartupInvoker invoker = new StartupInvoker(null, startupAssembly, "Development", contentRootPath);
+            var appServices = invoker.ConfigureServices();
+            return appServices.GetService(dbContextType) as DbContext;
         }
     }
 }
