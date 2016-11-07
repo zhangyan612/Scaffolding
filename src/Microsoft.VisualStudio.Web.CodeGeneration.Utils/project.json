@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0-*",
+  "version": "1.0.0-msbuild1-final",
   "description": "Contains utilities used by ASP.NET Core Code Generation packages.",
   "buildOptions": {
     "keyFile": "../../tools/Key.snk",
@@ -18,7 +18,7 @@
     "Microsoft.Extensions.PlatformAbstractions": "1.0.0",
     "Microsoft.Extensions.ProjectModel.Abstractions.Sources": {
       "type": "build",
-      "version": "1.0.0-*"
+      "version": "1.0.0-msbuild1-final"
     },
     "NETStandard.Library": "1.6.0",
     "Newtonsoft.Json": "9.0.1",

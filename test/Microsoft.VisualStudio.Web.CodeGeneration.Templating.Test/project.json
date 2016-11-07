@@ -9,7 +9,7 @@
       "version": "1.0.1",
       "type": "platform"
     },
-    "Microsoft.VisualStudio.Web.CodeGeneration.Templating": "1.0.0-*",
+    "Microsoft.VisualStudio.Web.CodeGeneration.Templating": "1.0.0-msbuild1-final",
     "Moq": "4.6.38-alpha",
     "System.Diagnostics.TraceSource": "4.0.0",
     "xunit": "2.2.0-*"

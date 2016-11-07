@@ -18,14 +18,14 @@
     "Microsoft.DotNet.Cli.Utils": "1.0.0-preview3-004050",
     "Microsoft.DotNet.InternalAbstractions": "1.0.0",
     "Microsoft.Extensions.FileProviders.Physical": "1.0.0",
-    "Microsoft.VisualStudio.Web.CodeGeneration.Utils": "1.0.0-*",
+    "Microsoft.VisualStudio.Web.CodeGeneration.Utils": "1.0.0-msbuild1-final",
     "Microsoft.Extensions.ProjectModel.MsBuild.Sources": {
       "type": "build",
-      "version": "1.0.0-*"
+      "version": "1.0.0-msbuild1-final"
     },
     "Microsoft.Extensions.ProjectModel.DotNet.Sources": {
       "type": "build",
-      "version": "1.0.0-*"
+      "version": "1.0.0-msbuild1-final"
     },
     "Moq": "4.6.38-alpha",
     "System.Diagnostics.TraceSource": "4.0.0",

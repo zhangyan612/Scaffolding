@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0-*",
+  "version": "1.0.0-msbuild1-final",
   "buildOptions": {
     "keyFile": "../../tools/Key.snk",
     "outputName": "dotnet-aspnet-codegenerator",
@@ -36,15 +36,15 @@
     "Microsoft.DotNet.ProjectModel": "1.0.0-rc3-003121",
     "Microsoft.Extensions.ProjectModel.Abstractions.Sources": {
       "type": "build",
-      "version": "1.0.0-*"
+      "version": "1.0.0-msbuild1-final"
     },
     "Microsoft.Extensions.ProjectModel.MsBuild.Sources": {
       "type": "build",
-      "version": "1.0.0-*"
+      "version": "1.0.0-msbuild1-final"
     },
     "Microsoft.Extensions.ProjectModel.DotNet.Sources": {
       "type": "build",
-      "version": "1.0.0-*"
+      "version": "1.0.0-msbuild1-final"
     },
     "Newtonsoft.Json": "9.0.1"
   },
