@@ -122,15 +122,18 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.Utils
 
             foreach (var reference in resolvedReferences)
             {
-                var metadataRef = GetMetadataReference(reference.ResolvedPath);
-                if (metadataRef != null)
-                {
-                    OnMetadataReferenceAdded(id, metadataRef);
+                var referenceAssemblyName = Path.GetFileNameWithoutExtension(reference.Name);
+                if (!this.CurrentSolution.Projects.Any(p => p.AssemblyName == referenceAssemblyName)){
+                    var metadataRef = GetMetadataReference(reference.ResolvedPath, referenceAssemblyName);
+                    if (metadataRef != null)
+                    {
+                        OnMetadataReferenceAdded(id, metadataRef);
+                    }
                 }
             }
         }
 
-        private MetadataReference GetMetadataReference(string assetPath)
+        private MetadataReference GetMetadataReference(string assetPath, string display)
         {
             var extension = Path.GetExtension(assetPath);
 
@@ -161,7 +164,13 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.Utils
                 }
             }
 
-            return assemblyMetadata?.GetReference();
+            return assemblyMetadata?.GetReference(display: display);
+        }
+
+        ///<summary></summary>
+        public override bool CanApplyChange(ApplyChangesKind kind)
+        {
+            return true;
         }
     }
 }

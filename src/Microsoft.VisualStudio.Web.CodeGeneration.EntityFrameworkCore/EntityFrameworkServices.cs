@@ -107,7 +107,7 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
 
         public async Task<ContextProcessingResult> GetModelMetadata(string dbContextFullTypeName, ModelType modelTypeSymbol, string areaName)
         {
-            Type dbContextType;
+            Type dbContextType = null;
             SyntaxTree dbContextSyntaxTree = null;
 
             EditSyntaxTreeResult startUpEditResult = new EditSyntaxTreeResult()
@@ -124,7 +124,8 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
             string dbContextError = string.Empty;
 
             AssemblyAttributeGenerator assemblyAttributeGenerator = GetAssemblyAttributeGenerator();
-
+            while (!System.Diagnostics.Debugger.IsAttached) {}
+            Solution solution = _workspace.CurrentSolution;
             if (dbContextSymbols.Count == 0)
             {
                 await ValidateEFSqlServerDependency();
@@ -187,34 +188,66 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
             else
             {
                 var addResult = _dbContextEditorServices.AddModelToContext(dbContextSymbols.First(), modelTypeSymbol);
-                var projectCompilation = _workspace.CurrentSolution.Projects
-                    .First(project => project.AssemblyName == _projectContext.AssemblyName)
-                    .GetCompilationAsync().Result;
+                var rootProject = solution.Projects
+                    .First(project => project.AssemblyName == _projectContext.AssemblyName);
+                var projectCompilation = rootProject
+                    .GetCompilationAsync()
+                    .Result;
 
                 if (addResult.Edited)
                 {
+
                     state = ContextProcessingStatus.ContextEdited;
                     dbContextSyntaxTree = addResult.NewTree;
                     _logger.LogMessage("Attempting to compile the application in memory with the modified DbContext");
+
+                    var dbContextAssemblyname = dbContextSymbols.First().TypeSymbol.ContainingAssembly.Identity.Name;
+                    Compilation dbContextCompilation = null;
+                    if (dbContextAssemblyname != _projectContext.AssemblyName)
+                    {
+                        var dbContextProject = solution.Projects
+                            .First(project => project.AssemblyName == dbContextAssemblyname);
+
+                        var document = dbContextProject.Documents.First(d => d.FilePath == addResult.OldTree.FilePath);
+                        solution = solution
+                            .RemoveDocument(document.Id)
+                            .AddDocument(document.Id, document.Name, addResult.NewTree.GetText().ToString(), document.Folders, document.FilePath);
+                        // dbContextProject.RemoveDocument(document.Id);
+                        // dbContextProject.AddDocument(document.Name, addResult.NewTree.GetRootAsync().Result, document.Folders, document.FilePath);
+
+                        var metadataReferences = rootProject.MetadataReferences.Where(m => m.Display != dbContextAssemblyname);
+                        dbContextCompilation = solution.Projects
+                           .First(project => project.AssemblyName == dbContextAssemblyname)
+                           .WithMetadataReferences(metadataReferences)
+                           .GetCompilationAsync().Result;
+
+                        var oldTree = dbContextCompilation.SyntaxTrees.FirstOrDefault(t => t.FilePath == addResult.OldTree.FilePath);
+                        if (oldTree == null)
+                        {
+                            throw new InvalidOperationException(string.Format(
+                                    MessageStrings.ModelTypeCouldNotBeAdded,
+                                    modelTypeSymbol.FullName,
+                                    dbContextFullTypeName));
+                        }
+                        dbContextCompilation = dbContextCompilation.ReplaceSyntaxTree(oldTree, addResult.NewTree);
+
+                        projectCompilation = dbContextProject.Solution.Projects.First(p => p.AssemblyName == _projectContext.AssemblyName)
+                            .GetCompilationAsync()
+                            .Result;
+                        projectCompilation = projectCompilation.AddReferences(dbContextCompilation.ToMetadataReference());
+                    }
 
                     reflectedTypesProvider = new ReflectedTypesProvider(
                         projectCompilation,
                         c =>
                         {
                             c = c.AddSyntaxTrees(assemblyAttributeGenerator.GenerateAttributeSyntaxTree());
-                            var oldTree = c.SyntaxTrees.FirstOrDefault(t => t.FilePath == addResult.OldTree.FilePath);
-                            if (oldTree == null)
-                            {
-                                throw new InvalidOperationException(string.Format(
-                                        MessageStrings.ModelTypeCouldNotBeAdded,
-                                        modelTypeSymbol.FullName,
-                                        dbContextFullTypeName));
-                            }
-                            return c.ReplaceSyntaxTree(oldTree, addResult.NewTree);
+                            return c;
                         },
                         _projectContext,
                         _loader,
-                        _logger);
+                        _logger,
+                        dbContextCompilation);
 
                     var compilationErrors = reflectedTypesProvider.GetCompilationErrors();
                     dbContextError = string.Format(
@@ -241,7 +274,7 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
                     dbContextError = string.Format(MessageStrings.DbContextTypeNotFound, dbContextFullTypeName);
                 }
             }
-            dbContextType = reflectedTypesProvider.GetReflectedType(dbContextFullTypeName);
+            dbContextType = dbContextType ?? reflectedTypesProvider.GetReflectedType(dbContextFullTypeName, true);
 
             if (dbContextType == null)
             {
@@ -424,7 +457,7 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
                     "Development",
                     Path.GetDirectoryName(_projectContext.ProjectFullPath));
 
-                var dbContextService = dbContextOperations.CreateContext(dbContextType.FullName);
+                var dbContextService = dbContextOperations.CreateContext(dbContextType.AssemblyQualifiedName);
 
                 return dbContextService;
             }

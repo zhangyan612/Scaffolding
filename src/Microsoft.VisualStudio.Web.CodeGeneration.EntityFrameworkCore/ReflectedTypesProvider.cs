@@ -19,12 +19,14 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
         private Compilation _compilation;
         private CompilationResult _compilationResult;
         private IProjectContext _projectContext;
+        private CompilationResult _additionalCompilationResult;
 
         public ReflectedTypesProvider(Compilation compilation,
              Func<Compilation, Compilation> compilationModificationFunc,
              IProjectContext projectContext,
              ICodeGenAssemblyLoadContext loader,
-             ILogger logger)
+             ILogger logger,
+             Compilation additionalCompilation = null)
         {
             if (compilation ==null)
             {
@@ -48,6 +50,7 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
                  ? compilation
                  : compilationModificationFunc(compilation);
             _compilationResult = GetCompilationResult(_compilation);
+            _additionalCompilationResult = additionalCompilation == null ? null : GetCompilationResult (additionalCompilation);
         }
 
         private CompilationResult GetCompilationResult(Compilation compilation)
@@ -100,6 +103,23 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
 
             if (modelReflectedType == null && lookInDependencies)
             {
+                // First look in additionalCompilations.
+                if (_additionalCompilationResult != null)
+                {
+                    try
+                    {
+                        modelReflectedType = _additionalCompilationResult.Assembly?.GetType(modelType);
+                        if (modelReflectedType != null)
+                        {
+                            return modelReflectedType;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogMessage(ex.Message, LogMessageLevel.Error);
+                    }
+                }
+
                 // Need to look in the dependencies of this project now.
                 var dependencies = _projectContext.CompilationAssemblies.GetEnumerator();
                 while (modelReflectedType == null && dependencies.MoveNext())
