@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
@@ -16,6 +17,8 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
     public class CodeModelMetadata : IModelMetadata
     {
         private PropertyMetadata[] _properties;
+        private List<NavigationMetadata> _navigations;
+        private List<PropertyMetadata> _primaryKeys;
         private Type _model;
 
         private static Type[] bindableNonPrimitiveTypes = new Type[]
@@ -35,27 +38,29 @@ namespace Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore
                 throw new ArgumentNullException(nameof(model));
             }
             _model = model;
+            _navigations = new List<NavigationMetadata>();
+            _primaryKeys = new List<PropertyMetadata>();
         }
 
         /// <summary>
-        /// Always returns null as there is no Entity type information
+        /// Always returns empty array as there is no Entity type information
         /// </summary>
         public NavigationMetadata[] Navigations
         {
             get
             {
-                return null;
+                return _navigations.ToArray();
             }
         }
 
         /// <summary>
-        /// Always return null as there is no Entity type information
+        /// Always return empty array as there is no Entity type information
         /// </summary>
         public PropertyMetadata[] PrimaryKeys
         {
             get
             {
-                return null;
+                return _primaryKeys.ToArray();
             }
         }
 
