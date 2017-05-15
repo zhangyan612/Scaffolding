@@ -20,11 +20,7 @@ namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Controller
             get;
             private set;
         }
-        protected IProjectContext ProjectContext
-        {
-            get;
-            private set;
-        }
+
         protected IServiceProvider ServiceProvider
         {
             get;
@@ -42,13 +38,8 @@ namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Controller
             ICodeGeneratorActionsService codeGeneratorActionsService,
             IServiceProvider serviceProvider,
             ILogger logger)
-            : base(applicationInfo)
+            : base(applicationInfo, projectContext)
         {
-            if (projectContext == null)
-            {
-                throw new ArgumentNullException(nameof(projectContext));
-            }
-
             if (applicationInfo == null)
             {
                 throw new ArgumentNullException(nameof(applicationInfo));
@@ -69,7 +60,6 @@ namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Controller
                 throw new ArgumentNullException(nameof(logger));
             }
 
-            ProjectContext = projectContext;
             CodeGeneratorActionsService = codeGeneratorActionsService;
             ServiceProvider = serviceProvider;
             Logger = logger;

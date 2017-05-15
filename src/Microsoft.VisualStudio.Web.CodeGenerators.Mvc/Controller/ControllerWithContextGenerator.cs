@@ -97,25 +97,6 @@ namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Controller
             }
         }
 
-        private void ValidateEFDependencies()
-        {
-            const string EfDesignPackageName = "Microsoft.EntityFrameworkCore.Design";
-            var isEFDesignPackagePresent = ProjectContext
-                .PackageDependencies
-                .Any(package => package.Name.Equals(EfDesignPackageName, StringComparison.OrdinalIgnoreCase));
-
-            const string SqlServerPackageName = "Microsoft.EntityFrameworkCore.SqlServer";
-            var isSqlServerPackagePresent = ProjectContext
-                .PackageDependencies
-                .Any(package => package.Name.Equals(SqlServerPackageName, StringComparison.OrdinalIgnoreCase));
-
-            if (!isEFDesignPackagePresent || !isSqlServerPackagePresent)
-            {
-                throw new InvalidOperationException(
-                    string.Format(MessageStrings.InstallEfPackages, $"{EfDesignPackageName}, {SqlServerPackageName}"));
-            }
-        }
-
         private async Task GenerateViewsIfRequired(CommandLineGeneratorModel controllerGeneratorModel,
             ModelTypeAndContextModel modelTypeAndContextModel,
             string controllerRootName)

@@ -4,30 +4,29 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.IO;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Web.CodeGeneration;
 using Microsoft.VisualStudio.Web.CodeGeneration.Contracts.ProjectModel;
 using Microsoft.VisualStudio.Web.CodeGeneration.DotNet;
 using Microsoft.VisualStudio.Web.CodeGeneration.EntityFrameworkCore;
+using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.View;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Dependency;
 
-namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc.View
+namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc.RazorPages
 {
-    public class EFModelBasedViewScaffolder : ViewScaffolderBase
+    public class EFModelBasedRazorPageScaffolder : RazorPageScaffolderBase
     {
         private IEntityFrameworkService _entityFrameworkService;
         private IModelTypesLocator _modelTypesLocator;
 
-        public EFModelBasedViewScaffolder(
+        public EFModelBasedRazorPageScaffolder(
             IProjectContext projectContext,
             IApplicationInfo applicationInfo,
             IModelTypesLocator modelTypesLocator,
             IEntityFrameworkService entityFrameworkService,
             ICodeGeneratorActionsService codeGeneratorActionsService,
             IServiceProvider serviceProvider,
-            ILogger logger) 
+            ILogger logger)
             : base(projectContext, applicationInfo, codeGeneratorActionsService, serviceProvider, logger)
         {
             if (modelTypesLocator == null)
@@ -70,17 +69,20 @@ namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc.View
                 _entityFrameworkService,
                 _modelTypesLocator,
                 string.Empty);
- 
-            var layoutDependencyInstaller = ActivatorUtilities.CreateInstance<MvcLayoutDependencyInstaller>(_serviceProvider);
-            await layoutDependencyInstaller.Execute();
 
             await GenerateView(viewGeneratorModel, modelTypeAndContextModel, outputPath);
-            await layoutDependencyInstaller.InstallDependencies();
+            await GeneratePageModel(viewGeneratorModel, modelTypeAndContextModel, outputPath);
 
             if (modelTypeAndContextModel.ContextProcessingResult.ContextProcessingStatus == ContextProcessingStatus.ContextAddedButRequiresConfig)
             {
                 throw new Exception(string.Format("{0} {1}", MessageStrings.ScaffoldingSuccessful_unregistered, MessageStrings.Scaffolding_additionalSteps));
             }
+        }
+
+        private Task GeneratePageModel(ViewGeneratorModel viewGeneratorModel, ModelTypeAndContextModel modelTypeAndContextModel, string outputPath)
+        {
+            _logger.LogMessage($"This will add the codebehind page. {viewGeneratorModel.ViewName}Model.cs");
+            return Task.CompletedTask;
         }
 
         protected override IEnumerable<RequiredFileEntity> GetRequiredFiles(ViewGeneratorModel viewGeneratorModel)
@@ -93,62 +95,6 @@ namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc.View
             }
 
             return requiredFiles;
-        }
-
-        /// <summary>
-        /// Method exposed for adding multiple views in one operation.
-        /// Utilised by the ControllerWithContextGenerator which generates 5 views for a MVC controller with context.
-        /// </summary>
-        /// <param name="viewsAndTemplates">Names of views and the corresponding template names</param>
-        /// <param name="viewGeneratorModel">Model for View Generator</param>
-        /// <param name="modelTypeAndContextModel">Model Type and DbContext metadata</param>
-        /// <param name="baseOutputPath">Folder where all views will be generated</param>
-        internal async Task GenerateViews(Dictionary<string, string> viewsAndTemplates, ViewGeneratorModel viewGeneratorModel, ModelTypeAndContextModel modelTypeAndContextModel, string baseOutputPath)
-        {
-
-            if (viewsAndTemplates == null)
-            {
-                throw new ArgumentNullException(nameof(viewsAndTemplates));
-            }
-
-            if (viewGeneratorModel == null)
-            {
-                throw new ArgumentNullException(nameof(viewsAndTemplates));
-            }
-
-            if (modelTypeAndContextModel == null)
-            {
-                throw new ArgumentNullException(nameof(modelTypeAndContextModel));
-            }
-
-            if (string.IsNullOrEmpty(baseOutputPath))
-            {
-                baseOutputPath = ApplicationInfo.ApplicationBasePath;
-            }
-
-            foreach (var entry in viewsAndTemplates)
-            {
-                var viewName = entry.Key;
-                var templateName = entry.Value;
-                if (viewName.EndsWith(Constants.ViewExtension, StringComparison.OrdinalIgnoreCase))
-                {
-                    int viewNameLength = viewName.Length - Constants.ViewExtension.Length;
-                    viewName = viewName.Substring(0, viewNameLength);
-                }
-
-                var outputPath = Path.Combine(baseOutputPath, viewName + Constants.ViewExtension);
-                bool isLayoutSelected = !viewGeneratorModel.PartialView &&
-                    (viewGeneratorModel.UseDefaultLayout || !String.IsNullOrEmpty(viewGeneratorModel.LayoutPage));
-
-                var templateModel = GetViewGeneratorTemplateModel(viewGeneratorModel, modelTypeAndContextModel);
-                templateModel.ViewName = viewName;
-
-                templateName = templateName + Constants.RazorTemplateExtension;
-                await _codeGeneratorActionsService.AddFileFromTemplateAsync(outputPath, templateName, TemplateFolders, templateModel);
-                _logger.LogMessage($"Added View : {outputPath.Substring(ApplicationInfo.ApplicationBasePath.Length)}");
-            }
-
-            await AddRequiredFiles(viewGeneratorModel);
         }
     }
 }

@@ -4,6 +4,8 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
+using Microsoft.VisualStudio.Web.CodeGeneration.Contracts.ProjectModel;
 using Microsoft.VisualStudio.Web.CodeGeneration.DotNet;
 
 namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc
@@ -13,14 +15,27 @@ namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc
     /// </summary>
     public abstract class CommonGeneratorBase
     {
-        protected CommonGeneratorBase(IApplicationInfo applicationInfo)
+        protected CommonGeneratorBase(IApplicationInfo applicationInfo, IProjectContext projectContext)
         {
             if (applicationInfo == null)
             {
                 throw new ArgumentNullException(nameof(applicationInfo));
             }
 
+            if (projectContext == null)
+            {
+                throw new ArgumentNullException(nameof(projectContext));
+            }
+
+            ProjectContext = projectContext;
+
             ApplicationInfo = applicationInfo;
+        }
+
+        protected IProjectContext ProjectContext
+        {
+            get;
+            private set;
         }
 
         protected IApplicationInfo ApplicationInfo
@@ -46,6 +61,25 @@ namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc
             }
 
             return outputPath;
+        }
+
+        protected void ValidateEFDependencies()
+        {
+            const string EfDesignPackageName = "Microsoft.EntityFrameworkCore.Design";
+            var isEFDesignPackagePresent = ProjectContext
+                .PackageDependencies
+                .Any(package => package.Name.Equals(EfDesignPackageName, StringComparison.OrdinalIgnoreCase));
+
+            const string SqlServerPackageName = "Microsoft.EntityFrameworkCore.SqlServer";
+            var isSqlServerPackagePresent = ProjectContext
+                .PackageDependencies
+                .Any(package => package.Name.Equals(SqlServerPackageName, StringComparison.OrdinalIgnoreCase));
+
+            if (!isEFDesignPackagePresent || !isSqlServerPackagePresent)
+            {
+                throw new InvalidOperationException(
+                    string.Format(MessageStrings.InstallEfPackages, $"{EfDesignPackageName}, {SqlServerPackageName}"));
+            }
         }
     }
 }

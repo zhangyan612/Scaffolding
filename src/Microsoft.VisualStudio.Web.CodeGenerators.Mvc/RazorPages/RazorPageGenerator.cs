@@ -6,18 +6,19 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.Web.CodeGeneration;
 using Microsoft.VisualStudio.Web.CodeGeneration.CommandLine;
-using Microsoft.VisualStudio.Web.CodeGeneration.DotNet;
 using Microsoft.VisualStudio.Web.CodeGeneration.Contracts.ProjectModel;
+using Microsoft.VisualStudio.Web.CodeGeneration.DotNet;
+using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.View;
 
-namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc.View
+namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc.RazorPages
 {
-    [Alias("view")]
-    public class ViewGenerator : CommonGeneratorBase, ICodeGenerator
+    [Alias("razorpage")]
+    public class RazorPageGenerator : CommonGeneratorBase, ICodeGenerator
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger _logger;
 
-        public ViewGenerator(
+        public RazorPageGenerator(
             IProjectContext projectContext,
             IApplicationInfo applicationInfo,
             IServiceProvider serviceProvider,
@@ -63,7 +64,7 @@ namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc.View
             ViewScaffolderBase scaffolder = null;
             if (string.IsNullOrEmpty(viewGeneratorModel.ModelClass))
             {
-                scaffolder = ActivatorUtilities.CreateInstance<EmptyViewScaffolder>(_serviceProvider);
+                scaffolder = ActivatorUtilities.CreateInstance<EmptyRazorPageScaffolder>(_serviceProvider);
             }
             else if (string.IsNullOrEmpty(viewGeneratorModel.DataContextClass))
             {
@@ -71,7 +72,7 @@ namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc.View
             }
             else
             {
-                scaffolder = ActivatorUtilities.CreateInstance<EFModelBasedViewScaffolder>(_serviceProvider);
+                scaffolder = ActivatorUtilities.CreateInstance<EFModelBasedRazorPageScaffolder>(_serviceProvider);
             }
 
             if (scaffolder != null)

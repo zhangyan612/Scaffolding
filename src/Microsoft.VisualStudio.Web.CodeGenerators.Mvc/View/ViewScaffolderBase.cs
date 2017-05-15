@@ -15,24 +15,18 @@ namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc.View
 {
     public abstract class ViewScaffolderBase: CommonGeneratorBase
     {
-        protected readonly IProjectContext _projectContext;
         protected readonly ICodeGeneratorActionsService _codeGeneratorActionsService;
         protected readonly IServiceProvider _serviceProvider;
         protected readonly ILogger _logger;
 
         public ViewScaffolderBase(
-            IProjectContext projectDependencyProvider,
+            IProjectContext projectContext,
             IApplicationInfo applicationInfo,
             ICodeGeneratorActionsService codeGeneratorActionsService,
             IServiceProvider serviceProvider,
             ILogger logger)
-            : base(applicationInfo)
+            : base(applicationInfo, projectContext)
         {
-            if (projectDependencyProvider == null)
-            {
-                throw new ArgumentNullException(nameof(projectDependencyProvider));
-            }
-
             if (applicationInfo == null)
             {
                 throw new ArgumentNullException(nameof(applicationInfo));
@@ -53,7 +47,6 @@ namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc.View
                 throw new ArgumentNullException(nameof(logger));
             }
 
-            _projectContext = projectDependencyProvider;
             _codeGeneratorActionsService = codeGeneratorActionsService;
             _serviceProvider = serviceProvider;
             _logger = logger;
@@ -67,7 +60,7 @@ namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc.View
                     containingProject: Constants.ThisAssemblyName,
                     applicationBasePath: ApplicationInfo.ApplicationBasePath,
                     baseFolders: new[] { "ViewGenerator" },
-                    projectContext: _projectContext);
+                    projectContext: ProjectContext);
             }
         }
 
@@ -106,7 +99,7 @@ namespace Microsoft.VisualStudio.Web.CodeGenerators.Mvc.View
 
         protected abstract IEnumerable<RequiredFileEntity> GetRequiredFiles(ViewGeneratorModel viewGeneratorModel);
 
-        protected ViewGeneratorTemplateModel GetViewGeneratorTemplateModel(ViewGeneratorModel viewGeneratorModel, ModelTypeAndContextModel modelTypeAndContextModel)
+        protected virtual ViewGeneratorTemplateModel GetViewGeneratorTemplateModel(ViewGeneratorModel viewGeneratorModel, ModelTypeAndContextModel modelTypeAndContextModel)
         {
             bool isLayoutSelected = !viewGeneratorModel.PartialView &&
                 (viewGeneratorModel.UseDefaultLayout || !String.IsNullOrEmpty(viewGeneratorModel.LayoutPage));
